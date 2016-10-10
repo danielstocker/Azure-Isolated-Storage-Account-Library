@@ -6,14 +6,19 @@ How to load the module:
 Features:
 =========
 
-• Discover storage cluster associations
-     - per storage account
-     - per resource group (ARM-only)
-     - for the whole subscription
-• Create a storage account avoiding one or more specified clusters
-• Create a specified number of storage accounts in a resource group, all on different clusters (ARM-only)
-• Create a specified number of storage accounts in a resource group, all on clusters that have not yet been used in said resource group (ARM-only)
-• Create a specified number of storage accounts in a resource group, all on different clusters, but only if no other storage account pair in the resource group already shares a cluster (ARM-only)
+â€¢ Discover storage cluster associations
+
+  - per storage account
+  - per resource group (ARM-only)
+  - for the whole subscription
+
+â€¢ Create a storage account avoiding one or more specified clusters
+
+â€¢ Create a specified number of storage accounts in a resource group, all on different clusters (ARM-only)
+
+â€¢ Create a specified number of storage accounts in a resource group, all on clusters that have not yet been used in said resource group (ARM-only)
+
+â€¢ Create a specified number of storage accounts in a resource group, all on different clusters, but only if no other storage account pair in the resource group already shares a cluster (ARM-only)
 
 Available commands:
 ===================
@@ -23,14 +28,19 @@ Get-AzureStorageAccountCluster
 
 Displays the current storage account cluster allocation for 
 
-• the whole subscription (if no parameters are specified)
-• a specified resource group (if the parameter is specified)
-• a specific storage account (if specified)
+â€¢ the whole subscription (if no parameters are specified)
+
+â€¢ a specified resource group (if the parameter is specified)
+
+â€¢ a specific storage account (if specified)
 
 Usage:
-	Get-AzureRmStorageAccountCluster -ResourceGroupName $ResourceGroupNameGet-AzureStorageAccountCluster -StorageAccountName $StorageAccountName
+	
+	Get-AzureRmStorageAccountCluster -ResourceGroupName $ResourceGroupName
+	Get-AzureStorageAccountCluster -StorageAccountName $StorageAccountName
 
 Sample Output:
+	
 	Get-AzureStorageAccountCluster
 	Getting clusters for all Classic storage accounts ...OK
 	
@@ -56,6 +66,7 @@ The command verifies if the randomly created name is globally available and, if 
 If a storage account lands on an excluded cluster, the creation will be retried three times. 
 
 Usage:
+	
 	New-AzureRmIsolatedStorageAccount -StorageAccountSuffix $StorageAccountSuffix -ResourceGroupName $ResourceGroupName `
 		-Location $Location -SkuName $SkuName `
 		-kind BlobStorage -ExcludeClusters $ExcludedCluster1,$ExcludedCluster2
@@ -64,6 +75,7 @@ Usage:
 		-SkuName Standard_LRS -ExcludeClusters $ExcludedCluster1,$ExcludedCluster2 
 	
 Sample Output:
+	
 	New-AzureIsolatedStorageAccount -StorageAccountSuffix "eaacc" -Location "East Asia" -SkuName Standard_LRS -ExcludeClusters hk2prdstr06a,hk2prdstr02a,hknprdstr09a 
 	Create new storage account : ejueaacc  ...Getting cluster for ejueaacc ...OK
 	 Account is on cluster hk2prdstr06a
@@ -89,6 +101,7 @@ The RG is also created, if it does not already exist.
 This cmdlet is ARM-only - RDFE users should use a combination of Get-AzureStorageAccountCluster and New-AzureIsolatedStorageAccount
 
 Usage:
+
 	New-AzureRmIsolatedStorageAccountList -Location $location `
 	    -ResourceGroupName $ResourceGroupName `
 	    -StorageAccountSuffix $storageAccountSuffix `
