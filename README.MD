@@ -9,22 +9,22 @@ Features:
 • Discover storage cluster associations
 
   - per storage account
-  - per resource group (ARM-only)
+  - per resource group *ARM-only*
   - for the whole subscription
 
 • Create a storage account avoiding one or more specified clusters
 
-• Create a specified number of storage accounts in a resource group, all on different clusters (ARM-only)
+• Create a specified number of storage accounts in a resource group, all on different clusters *ARM-only*
 
-• Create a specified number of storage accounts in a resource group, all on clusters that have not yet been used in said resource group (ARM-only)
+• Create a specified number of storage accounts in a resource group, all on clusters that have not yet been used in said resource group *ARM-only*
 
-• Create a specified number of storage accounts in a resource group, all on different clusters, but only if no other storage account pair in the resource group already shares a cluster (ARM-only)
+• Create a specified number of storage accounts in a resource group, all on different clusters, but only if no other storage account pair in the resource group already shares a cluster *ARM-only*
 
 Available commands:
 ===================
 
-Get-AzureRmStorageAccountCluster
-Get-AzureStorageAccountCluster
+**Get-AzureRmStorageAccountCluster**
+**Get-AzureStorageAccountCluster**
 
 Displays the current storage account cluster allocation for 
 
@@ -56,8 +56,8 @@ Sample Output:
 	hk2prdstr02a earagrs           
 	sn4prdstr03a mymachscent  
 
-New-AzureRmIsolatedStorageAccount
-New-AzureIsolatedStorageAccount
+**New-AzureRmIsolatedStorageAccount**
+**New-AzureIsolatedStorageAccount**
 
 Creates a single storage account. The user can specify cluster names that should be avoided during creation. 
 Storage account name is created with a 3-alphanumeric random prefix and a given suffix.
@@ -87,7 +87,7 @@ Sample Output:
 	OK
 
 
-New-AzureRmIsolatedStorageAccountList
+**New-AzureRmIsolatedStorageAccountList**
 
 Creates a given number of storage account in the provided location and resource group.
 Storage account name is created with a 3-alphanumeric random prefix and a given suffix.
@@ -98,7 +98,7 @@ The RG is also created, if it does not already exist.
 (optional) The command can analyse the provided ResourceGroup in search for storage accounts located on same storage clusters. 
 (optional) The command can exclude all clusters that were previously (during previous deployments) used in the resource group when creating new accounts. 
 
-This cmdlet is ARM-only - RDFE users should use a combination of Get-AzureStorageAccountCluster and New-AzureIsolatedStorageAccount
+*This cmdlet is ARM-only* - RDFE users should use a combination of Get-AzureStorageAccountCluster and New-AzureIsolatedStorageAccount
 
 Usage:
 
@@ -150,12 +150,12 @@ Sample Output for successful creation:
 	db5prdstr04a k3rnorth          
 	db3prdstr05a rbxnorth          
 
-Get-AzureRmStorageAccountInSameCluster
+**Get-AzureRmStorageAccountInSameCluster**
 
 Analyze the provided ResourceGroup in search for storage accounts located on same sotrage clusters. 
 If duplicates are found, the list is returned.
 
-This cmdlet is ARM-only
+*This cmdlet is ARM-only*
 
 Usage:
 
