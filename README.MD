@@ -1,3 +1,4 @@
+
 How to load the module:
 =======================
 
@@ -24,6 +25,7 @@ Available commands:
 ===================
 
 **Get-AzureRmStorageAccountCluster**
+
 **Get-AzureStorageAccountCluster**
 
 Displays the current storage account cluster allocation for 
@@ -57,10 +59,13 @@ Sample Output:
 	sn4prdstr03a mymachscent  
 
 **New-AzureRmIsolatedStorageAccount**
+
 **New-AzureIsolatedStorageAccount**
 
 Creates a single storage account. The user can specify cluster names that should be avoided during creation. 
+
 Storage account name is created with a 3-alphanumeric random prefix and a given suffix.
+
 The command verifies if the randomly created name is globally available and, if not, it generates a new name.
 
 If a storage account lands on an excluded cluster, the creation will be retried three times. 
@@ -91,11 +96,13 @@ Sample Output:
 
 Creates a given number of storage account in the provided location and resource group.
 Storage account name is created with a 3-alphanumeric random prefix and a given suffix.
+
 The command verifies if the randomly created name is globally available and, if not, it generates a new name.
 
 The RG is also created, if it does not already exist.
 
 (optional) The command can analyse the provided ResourceGroup in search for storage accounts located on same storage clusters. 
+
 (optional) The command can exclude all clusters that were previously (during previous deployments) used in the resource group when creating new accounts. 
 
 *This cmdlet is ARM-only* - RDFE users should use a combination of Get-AzureStorageAccountCluster and New-AzureIsolatedStorageAccount
