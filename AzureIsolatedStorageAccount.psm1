@@ -1,4 +1,4 @@
-﻿#------------------------------------------------------------------------------  #  # Copyright © 2016 Microsoft Corporation.  All rights reserved.  #  # THIS CODE AND ANY ASSOCIATED INFORMATION ARE PROVIDED “AS IS” WITHOUT  # WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT # LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS  # FOR A PARTICULAR PURPOSE. THE ENTIRE RISK OF USE, INABILITY TO USE, OR   # RESULTS FROM THE USE OF THIS CODE REMAINS WITH THE USER.  #  #------------------------------------------------------------------------------  #  # PowerShell Module Source Code  #  # NAME:  #    AzureIsolatedStorageAccount.psm1  #  # VERSION:  #    1.2# # TESTED:#    with AzurePowershell v1.6.0 #------------------------------------------------------------------------------  
+﻿#------------------------------------------------------------------------------  #  # Copyright © 2016 Microsoft Corporation.  All rights reserved.  #  # THIS CODE AND ANY ASSOCIATED INFORMATION ARE PROVIDED “AS IS” WITHOUT  # WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT # LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS  # FOR A PARTICULAR PURPOSE. THE ENTIRE RISK OF USE, INABILITY TO USE, OR   # RESULTS FROM THE USE OF THIS CODE REMAINS WITH THE USER.  #  #------------------------------------------------------------------------------  #  # PowerShell Module Source Code  #  # NAME:  #    AzureIsolatedStorageAccount.psm1  #  # VERSION:  #    1.3# # TESTED:#    with AzurePowershell v3.0.0#------------------------------------------------------------------------------  
 
 <# 
 .PRIVATE FUNCTION
@@ -83,7 +83,16 @@ function Get-StorageAccountNameWithRandomPrefix($StorageAccountSuffix) {
         Write-Host "Create new storage account : $storageaccountname  ..." -NoNewline
         
         # check if name is available
-        $IsAvailable = (Get-AzureRmStorageAccountNameAvailability -Name $storageaccountname ).NameAvailable
+        $IsAvailable = $false
+
+        try {
+            $IsAvailable = (Get-AzureRmStorageAccountNameAvailability -Name $storageaccountname -ErrorAction Stop).NameAvailable 
+        } catch {
+            Write-Host "KO!" -ForegroundColor Red
+            throw [System.Exception] " Cannot currently check storage account name availability. Make sure you have run Login-AzureRMAccount and Add-AzureAccount before using any module cmdlets."
+            return
+        }
+        
         if(!$IsAvailable)
         {
             # check if max num of retries is reached.          
@@ -99,7 +108,7 @@ function Get-StorageAccountNameWithRandomPrefix($StorageAccountSuffix) {
     }
     while(!$IsAvailable)
 
-    return $storageaccountname
+    return $storageaccountname.ToString()
 }
 
 <# 
@@ -341,6 +350,8 @@ function Get-AzureStorageAccountCluster
    Location | The Azure region, where the storage account should be created
    (optional) SkuName | one of the following: "Standard_LRS", "Standard_ZRS", "Standard_GRS", "Standard_RAGRS", "Premium_LRS"
    (optional) Kind | one of the following: "Storage" (hot storage), "BlobStorage" (cool storage)
+   (optional) SpecificCluster | a specific cluster that the account should be created on (e.g. "db6prdstr02a") | using this parameter disables the usage of excluded clusters
+   (optional) NumberOfRetries | defaults to 3 | specifies the amount of times the function will retry the creation if the right cluster is not hit
    (optional | array) ExcludedClusters | a list of excluded cluster names (e.g. "db6prdstr02a,db5prdstr04a")
 .OUTPUTS 
    The newly created storage account
@@ -370,9 +381,29 @@ function New-AzureRmIsolatedStorageAccount
     # [string]$accessTier,
 
     [Parameter(Mandatory=$False)]
+    [int]$NumberOfRetries = 3,
+
+    [Parameter(Mandatory=$False)]
+    [string]$SpecificCluster="",
+
+    [Parameter(Mandatory=$False)]
     [array]$ExcludeClusters=@()
 
  )
+
+    if(($NumberOfRetries -lt 1) -or ($NumberOfRetries -gt 29)) {
+       Write-Host "Number of retries parameter set to invalid number... resetting to 3" -ForegroundColor Yellow
+       $NumberOfRetries = 3 
+    }
+
+    if(($SpecificCluster -ne "") -and ($ExcludeClusters.Length -gt 0)) {
+        Write-Host "Specific cluster set... Will overwrite any settings for Excluded Clusters..." -ForegroundColor Yellow
+    }
+
+    if($SpecificCluster -ne "") {
+        $ExcludeClusters = @();
+        Write-Host "Will try" $numberOfRetries "time(s) to create account on cluster:" $SpecificCluster.ToLower() -ForegroundColor Cyan
+    }
 
     # get-or-create resource group 
     $rg = Set-AzureResourceGroup -ResourceGroupName $ResourceGroupName -location $Location
@@ -384,9 +415,9 @@ function New-AzureRmIsolatedStorageAccount
     $storageAccount = New-AzureRmStorageAccount -ResourceGroupName $ResourceGroupName -Name $storageaccountname -Location $location -SkuName $skuName -Kind $kind -WarningAction SilentlyContinue
 
     # do we need to check for excluded clusters
-    if ($ExcludeClusters.Length -gt 0) {
+    if (($ExcludeClusters.Length -gt 0) -or ($SpecificCluster -ne "")) {
         
-        $maxAttempts = 3
+        $maxAttempts = $NumberOfRetries
         $creationAttempt = 0
 
         for($i = 0; $i -lt $ExcludeClusters.Length; $i++) {
@@ -407,10 +438,16 @@ function New-AzureRmIsolatedStorageAccount
             $cluster = (Get-AzureRmStorageAccountCluster -ResourceGroupName $ResourceGroupName -StorageAccountName $storageaccountname)[0].ClusterName
             Write-Host " Account is on cluster $cluster"
 
+            if($SpecificCluster -ne "") {
+                if(-not($SpecificCluster.ToString().ToLower().Equals($cluster.ToString().ToLower().Trim()))) {
+                    $ExcludeClusters += ($cluster.ToString().ToLower().Trim());
+                }
+            }
+
             # have we landed on a forbidden cluster
             if($ExcludeClusters.Contains($cluster.ToString().ToLower().Trim())) {
-                write-host "KO! Storage account is on cluster $cluster, which is part of the excluded clusters. Removing account..." -ForegroundColor Yellow
-                Remove-AzureRmStorageAccount -ResourceGroupName $ResourceGroupName -Name $storageaccountname -WarningAction SilentlyContinue
+                write-host "KO! Storage account is on cluster $cluster, which is not allowed for this deployment. Removing account..." -ForegroundColor Yellow
+                Remove-AzureRmStorageAccount -ResourceGroupName $ResourceGroupName -Name $storageaccountname -Force -WarningAction SilentlyContinue
 
                 if($creationAttempt -lt $maxAttempts) {
                     
@@ -455,7 +492,8 @@ function New-AzureRmIsolatedStorageAccount
    Location | The Azure region, where the storage account should be created
    (optional) SkuName | one of the following: "Standard_LRS", "Standard_ZRS", "Standard_GRS", "Standard_RAGRS", "Premium_LRS"
    (optional) Kind | one of the following: "Storage" (hot storage), "BlobStorage" (cool storage)
-   (optional) Number of Accounts | 3 by default
+   (optional) NumberOfAccounts | 3 by default
+   (optional) NumberOfRetries | defaults to 3 | specifies the amount of times the function will retry the creation if the right cluster is not hit
    (switch) ValidateExistingStorageAccounts | will validate the resource group for existing storage accounts that share a storage cluster and abort the operation if it finds any storage accounts of this kind
    (switch) DoNotCreateOnPreviouslyUsedClusters | will take into account storage account clusters that have previously been used in the same resource group, when creating new storage accounts through this method
 .OUTPUTS 
@@ -483,19 +521,31 @@ function New-AzureRmIsolatedStorageAccountList
     # access tier cannot currently be set (Storage/BlobStorage determines the access tier)
     #[ValidateSet("Hot","Cool")]
     #[string]$accessTier,
+
+    [Parameter(Mandatory=$False)]
     [int]$NumberOfAccounts = 3,
+    
+    [Parameter(Mandatory=$False)]
+    [int]$NumberOfRetries = 3,
+
+    [Parameter(Mandatory=$False)]
     [switch]$ValidateExistingStorageAccounts=$false,
+    
+    [Parameter(Mandatory=$False)]
     [switch]$DoNotCreateOnPreviouslyUsedClusters=$false
     )
 
     try{
         Write-Host "Starting job. Creating $NumberOfAccounts storage accounts in $location for Resource Group $ResourceGroupName.`n"
 
+        if(($NumberOfRetries -lt 1) -or ($NumberOfRetries -gt 29)) {
+           Write-Host "Number of retries parameter set to invalid number... resetting to 3" -ForegroundColor Yellow
+           $NumberOfRetries = 3 
+        }
 
         # get-or-create resource group 
         $rg = Set-AzureResourceGroup -ResourceGroupName $ResourceGroupName -location $location
 
-        $maxAttempts = 3
         $accountArray = @()
         $excludedClusters = @()
 
@@ -535,7 +585,7 @@ function New-AzureRmIsolatedStorageAccountList
             $sa = $null
 
             # create a new storage account
-            $sa = New-AzureRmIsolatedStorageAccount -ExcludeClusters $excludedClusters -SkuName $SkuName -kind $kind -StorageAccountSuffix $StorageAccountSuffix -ResourceGroupName $ResourceGroupName -Location $Location
+            $sa = New-AzureRmIsolatedStorageAccount -ExcludeClusters $excludedClusters -NumberOfRetries $NumberOfRetries -SkuName $SkuName -kind $kind -StorageAccountSuffix $StorageAccountSuffix -ResourceGroupName $ResourceGroupName -Location $Location
 
             if($sa -eq $null) {
                 continue
@@ -581,6 +631,8 @@ function New-AzureRmIsolatedStorageAccountList
    StorageAccountSuffix | The second half of the resulting storage account name; for the purpose of this function the first half needs to be auto-generated
    Location | The Azure region, where the storage account should be created
    (optional) SkuName | one of the following: "Standard_LRS", "Standard_ZRS", "Standard_GRS", "Standard_RAGRS", "Premium_LRS"
+   (optional) SpecificCluster | a specific cluster that the account should be created on (e.g. "db6prdstr02a") | using this parameter disables the usage of excluded clusters
+   (optional) NumberOfRetries | defaults to 3 | specifies the amount of times the function will retry the creation if the right cluster is not hit
    (optional | array) ExcludedClusters | a list of excluded cluster names (e.g. "db6prdstr02a,db5prdstr04a")
 .OUTPUTS 
    The newly created storage account
@@ -597,9 +649,29 @@ function New-AzureIsolatedStorageAccount
     [ValidateSet("Standard_LRS", "Standard_ZRS", "Standard_GRS", "Standard_RAGRS", "Premium_LRS")]
     [string]$SkuName="Standard_LRS",
 
+    [Parameter(Mandatory=$False)]
+    [int]$NumberOfRetries = 3,
+
+    [Parameter(Mandatory=$False)]
+    [string]$SpecificCluster="",
+
     [array]$ExcludeClusters=@()
 
  )
+
+    if(($NumberOfRetries -lt 1) -or ($NumberOfRetries -gt 29)) {
+       Write-Host "Number of retries parameter set to invalid number... resetting to 3" -ForegroundColor Yellow
+       $NumberOfRetries = 3 
+    }
+
+    if(($SpecificCluster -ne "") -and ($ExcludeClusters.Length -gt 0)) {
+        Write-Host "Specific cluster set... Will overwrite any settings for Excluded Clusters..." -ForegroundColor Yellow
+    }
+
+    if($SpecificCluster -ne "") {
+        $ExcludeClusters = @();
+        Write-Host "Will try" $numberOfRetries "time(s) to create account on cluster:" $SpecificCluster.ToLower() -ForegroundColor Cyan
+    }
 
     $storageAccountName = Get-StorageAccountNameWithRandomPrefix($StorageAccountSuffix)
 
@@ -607,9 +679,9 @@ function New-AzureIsolatedStorageAccount
     $storageAccount = New-AzureStorageAccount -StorageAccountName $storageaccountname -Location $location -Type $skuName -WarningAction SilentlyContinue
 
     # do we need to check for excluded clusters
-    if ($ExcludeClusters.Length -gt 0) {
+    if (($ExcludeClusters.Length -gt 0) -or ($SpecificCluster -ne "")) {
         
-        $maxAttempts = 3
+        $maxAttempts = $NumberOfRetries
         $creationAttempt = 0
 
         for($i = 0; $i -lt $ExcludeClusters.Length; $i++) {
@@ -630,9 +702,15 @@ function New-AzureIsolatedStorageAccount
             $cluster = (Get-AzureStorageAccountCluster -StorageAccountName $storageaccountname)[0].ClusterName
             Write-Host " Account is on cluster $cluster"
 
+            if($SpecificCluster -ne "") {
+                if(-not($SpecificCluster.ToString().ToLower().Equals($cluster.ToString().ToLower().Trim()))) {
+                    $ExcludeClusters += ($cluster.ToString().ToLower().Trim());
+                }
+            }
+
             # have we landed on a forbidden cluster
             if($ExcludeClusters.Contains($cluster.ToString().ToLower().Trim())) {
-                write-host "KO! Storage account is on cluster $cluster, which is part of the excluded clusters. Removing account..." -ForegroundColor Yellow
+                write-host "KO! Storage account is on cluster $cluster, which is not allowed for this deployment. Removing account..." -ForegroundColor Yellow
                 Remove-AzureStorageAccount -StorageAccountName $storageAccountName -WarningAction SilentlyContinue
 
                 if($creationAttempt -lt $maxAttempts) {

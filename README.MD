@@ -68,16 +68,20 @@ Storage account name is created with a 3-alphanumeric random prefix and a given 
 
 The command verifies if the randomly created name is globally available and, if not, it generates a new name.
 
-If a storage account lands on an excluded cluster, the creation will be retried three times. 
+If a storage account lands on an excluded cluster, the creation will be retried for a specified amount of times. (3 by default)
+A storage account creation can be restricted to a specific cluster as well. A high amount of retries is recommended for this option, as there is a fair chance that a number of attempts will be unsuccessful.
 
 Usage:
 	
 	New-AzureRmIsolatedStorageAccount -StorageAccountSuffix $StorageAccountSuffix -ResourceGroupName $ResourceGroupName `
-		-Location $Location -SkuName $SkuName `
+		-Location $Location -SkuName $SkuName -NumberOfRetries 4 `
 		-kind BlobStorage -ExcludeClusters $ExcludedCluster1,$ExcludedCluster2
 		
 	New-AzureIsolatedStorageAccount -StorageAccountSuffix $StorageAccountSuffix -Location $Location `
 		-SkuName Standard_LRS -ExcludeClusters $ExcludedCluster1,$ExcludedCluster2 
+		
+	New-AzureIsolatedStorageAccount -StorageAccountSuffix $StorageAccountSuffix -Location $Location `
+		-SkuName Standard_LRS -SpecificCluster $SpecificCluster -NumberOfRetries 10
 	
 Sample Output:
 	
@@ -104,6 +108,7 @@ The RG is also created, if it does not already exist.
 (optional) The command can analyse the provided ResourceGroup in search for storage accounts located on same storage clusters. 
 
 (optional) The command can exclude all clusters that were previously (during previous deployments) used in the resource group when creating new accounts. 
+(optional) By default the command retries account creations 3 times. The amount of retries is configurable.
 
 *This cmdlet is ARM-only* - RDFE users should use a combination of Get-AzureStorageAccountCluster and New-AzureIsolatedStorageAccount
 
@@ -111,7 +116,7 @@ Usage:
 
 	New-AzureRmIsolatedStorageAccountList -Location $location `
 	    -ResourceGroupName $ResourceGroupName `
-	    -StorageAccountSuffix $storageAccountSuffix `
+	    -StorageAccountSuffix $storageAccountSuffix -NumberOfRetries 10 `
 	    -NumberOfAccounts 6 -kind BlobStorage -SkuName Standard_LRS `
 	    -ValidateExistingStorageAccounts -DoNotCreateOnPreviouslyUsedClusters
 
